@@ -1,0 +1,56 @@
+name: Docker Image CI
+
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Setup Docker
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Generate Tags
+        # 【重要修正】使用 'if' 条件，确保此步骤仅在推送到 'main' 分支时运行，避免了 'enable' 属性的错误。
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: docker/metadata-action@v4
+        id: metadata
+        with:
+          images: |
+            tano26/jrlp
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+            # 在此条件下，直接添加 'latest' 标签。
+            type=raw,value=latest 
+
+      - name: Build and Publish
+        # 【重要修正】此条件确保只有在标签生成步骤成功运行时（即在 main 分支 push 时），才执行构建和推送。
+        if: steps.metadata.outputs.tags != ''
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
