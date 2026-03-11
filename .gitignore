@@ -8,9 +8,17 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# 忽略整个 data 文件夹
+/data/
+
+# 或者如果你只想精确忽略 sqlite 数据库文件
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+
 # C extensions
 *.so
-
 # Distribution / packaging
 .Python
 build/
