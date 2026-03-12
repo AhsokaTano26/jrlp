@@ -1,5 +1,6 @@
 import random
 from typing import Dict, Any
+import hashlib
 import time
 import secrets
 from nonebot import on_command
@@ -87,9 +88,10 @@ async def handle_rob(bot: Bot, event: GroupMessageEvent, session: async_scoped_s
         msg = "人家" + MessageSegment.at(target_id) + "还没老婆呢，你抢个空气啊！"
         await rob_lp_matcher.finish(msg)
 
-    random.seed(int(time.time()) // 3600 + user_id)
-    luck_roll = random.uniform(0.0, 1.0)
-    if user_id == 104901092:
+    seed_str = f"{user_id}{int(time.time())}"
+    # 使用 md5 转换成一个大整数，再映射到 0.0 - 1.0 之间
+    luck_roll = int(hashlib.md5(seed_str.encode()).hexdigest(), 16) / (16 ** 32)
+    if user_id == 1049109092:
         luck_roll = 0.01
     # 2. 判定成功率
     if luck_roll < 0.15:
