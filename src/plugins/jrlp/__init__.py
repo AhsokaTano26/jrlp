@@ -88,11 +88,19 @@ async def handle_rob(bot: Bot, event: GroupMessageEvent, session: async_scoped_s
         msg = "人家" + MessageSegment.at(target_id) + "还没老婆呢，你抢个空气啊！"
         await rob_lp_matcher.finish(msg)
 
+    my_wife_id = await get_today_wife(session, group_id, user_id)
+
     seed_str = f"{user_id}{int(time.time())}"
     luck_roll = int(hashlib.md5(seed_str.encode()).hexdigest(), 16) / (16 ** 32)
 
+    if my_wife_id:
+        luck_roll += 0.15
+        # 确保不越界
+        luck_roll = min(luck_roll, 0.95)
+
     if user_id == 1049109092:
         luck_roll = 0.01
+
     # 2. 判定成功率
     if luck_roll < 0.15:
         await remove_wife_relation(session, group_id, target_id)
@@ -111,7 +119,7 @@ async def handle_rob(bot: Bot, event: GroupMessageEvent, session: async_scoped_s
         await remove_wife_relation(session, group_id, target_id)
         await rob_lp_matcher.finish(Message("由于场面太过混乱，") +
                                     MessageSegment.at(target_id) +
-                                    Message("的老婆趁机溜走，不知去向了！") )
+                                    Message(" 的老婆趁机溜走，不知去向了！") )
 
         # 情况 D：【惊天反转/白给】 (10% 概率) - 0.85 以上
         # 逻辑：抢夺失败，如果你自己有老婆，你的老婆反而会变成对方的
@@ -121,23 +129,23 @@ async def handle_rob(bot: Bot, event: GroupMessageEvent, session: async_scoped_s
             await remove_wife_relation(session, group_id, user_id)
             await update_wife_relation(session, group_id, target_id, my_wife_id)
             await rob_lp_matcher.send(
-                Message("【赔了夫人又折兵！】你抢人不成，反而把自己的老婆赔给了") +
+                Message("【赔了夫人又折兵！】你抢人不成，反而把自己的老婆赔给了 ") +
                 MessageSegment.at(target_id) +
-                Message("！") )
+                Message(" ！") )
             await send_match_message(bot, group_id, target_id, my_wife_id, "这是你意外获得的新老婆：")
         else:
             await rob_lp_matcher.finish(
-                Message("你试图强抢，结果被") +
+                Message("你试图强抢，结果被 ") +
                 MessageSegment.at(target_id) +
-                Message("按在地上摩擦，还被围观群众嘲笑！") )
+                Message(" 按在地上摩擦，还被围观群众嘲笑！") )
 
         # 情况 E：【普通失败】 (剩余 40% 概率)
     else:
         fail_msgs = [
-            "对方甚至没正眼看你，抢夺失败。",
-            "你还没进家门就被对方养的狗撵出来了。",
-            "计划败露，你灰溜溜地逃跑了。",
-            "对方的防御密不透风，你无从下手。"
+            " 对方甚至没正眼看你，抢夺失败。",
+            " 你还没进家门就被对方养的狗撵出来了。",
+            " 计划败露，你灰溜溜地逃跑了。",
+            " 对方的防御密不透风，你无从下手。"
         ]
         await rob_lp_matcher.finish(MessageSegment.at(user_id) +
                                     Message(random.choice(fail_msgs)) )
