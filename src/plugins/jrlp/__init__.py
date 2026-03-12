@@ -93,10 +93,18 @@ async def handle_rob(bot: Bot, event: GroupMessageEvent, session: async_scoped_s
     seed_str = f"{user_id}{int(time.time())}"
     luck_roll = int(hashlib.md5(seed_str.encode()).hexdigest(), 16) / (16 ** 32)
 
+    flag = await is_group_owner(bot, group_id, target_wife_id)
+
     if my_wife_id:
         luck_roll += 0.15
         # 确保不越界
         luck_roll = min(luck_roll, 0.95)
+
+    if flag and 0.4 < luck_roll < 0.5:
+        luck_roll = min(luck_roll - 0.2, 0.4, 0.01)
+
+    if flag and luck_roll > 0.85:
+        luck_roll = 0.6
 
     # 2. 判定成功率
     if luck_roll < 0.15:
@@ -147,6 +155,15 @@ async def handle_rob(bot: Bot, event: GroupMessageEvent, session: async_scoped_s
         await rob_lp_matcher.finish(MessageSegment.at(user_id) +
                                     Message(random.choice(fail_msgs)) )
 
+async def is_group_owner(bot: Bot, group_id: int, user_id: int) -> bool:
+    try:
+        member_info = await bot.get_group_member_info(group_id=group_id, user_id=user_id)
+        if member_info.get("role") == "owner":
+            return True
+        else:
+            return False
+    except Exception:
+        return False
 
 
 async def send_match_message(bot: Bot, group_id: int, request_user_id: int, matched_user_id: int, title: str):
