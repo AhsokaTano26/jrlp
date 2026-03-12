@@ -90,7 +90,7 @@ async def handle_rob(bot: Bot, event: GroupMessageEvent, session: async_scoped_s
     random.seed(int(time.time()) // 3600 + user_id)
     luck_roll = random.uniform(0.0, 1.0)
     if user_id == 104901092:
-        luck_roll = 0
+        luck_roll = 0.01
     # 2. 判定成功率
     if luck_roll < 0.15:
         await remove_wife_relation(session, group_id, target_id)
