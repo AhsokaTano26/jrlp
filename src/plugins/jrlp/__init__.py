@@ -98,9 +98,6 @@ async def handle_rob(bot: Bot, event: GroupMessageEvent, session: async_scoped_s
         # 确保不越界
         luck_roll = min(luck_roll, 0.95)
 
-    if user_id == 1049109092:
-        luck_roll = luck_roll - 0.2
-
     # 2. 判定成功率
     if luck_roll < 0.15:
         await remove_wife_relation(session, group_id, target_id)
