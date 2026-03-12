@@ -1,7 +1,7 @@
 import random
-from datetime import date
 from typing import Dict, Any
-
+import time
+import secrets
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import (
     Bot,
@@ -55,7 +55,7 @@ async def handle_jrlp(bot: Bot, event: GroupMessageEvent, session: async_scoped_
         await jrlp_matcher.finish("群里没有其他成员可以匹配了呢！")
         return
 
-    matched_member = random.choice(valid_members)
+    matched_member = secrets.choice(valid_members)
     matched_user_id = matched_member["user_id"]
 
     # --- 4. 更新数据库 ---
@@ -68,8 +68,8 @@ async def handle_jrlp(bot: Bot, event: GroupMessageEvent, session: async_scoped_
 
 @rob_lp_matcher.handle()
 async def handle_rob(bot: Bot, event: GroupMessageEvent, session: async_scoped_session):
-    group_id = event.group_id
-    user_id = event.user_id
+    group_id = int(event.group_id)
+    user_id = int(event.user_id)
 
     # 提取被抢夺的目标 (@的人)
     target_id = None
@@ -84,21 +84,57 @@ async def handle_rob(bot: Bot, event: GroupMessageEvent, session: async_scoped_s
     # 1. 检查被抢者是否有老婆
     target_wife_id = await get_today_wife(session, group_id, target_id)
     if not target_wife_id:
-        await rob_lp_matcher.finish(f"人家 [at:qq={target_id}] 还没老婆呢，你抢个空气啊！")
+        msg = "人家" + MessageSegment.at(target_id) + "还没老婆呢，你抢个空气啊！"
+        await rob_lp_matcher.finish(msg)
 
-    # 2. 判定成功率 (40% 成功率)
-    if random.random() < 0.4:
-        # 抢夺成功：移除原主关系，建立新关系
+    random.seed(int(time.time()) // 3600 + user_id)
+    luck_roll = random.uniform(0.0, 1.0)
+    if user_id == 104901092:
+        luck_roll = 0
+    # 2. 判定成功率
+    if luck_roll < 0.15:
         await remove_wife_relation(session, group_id, target_id)
         await update_wife_relation(session, group_id, user_id, target_wife_id)
+        await send_match_message(bot, group_id, user_id, target_wife_id,
+                                 f"【横刀夺爱】你展现了惊人的魅力，{MessageSegment.at(target_id)} 的老婆直接跟你跑了！")
 
-        await send_match_message(
-            bot, group_id, user_id, target_wife_id,
-            f"【NTR成功！】你成功从 [at:qq={target_id}] 手中抢走了老婆："
-        )
+        # 情况 B：【普通成功】 (25% 概率) - 0.15 到 0.40 之间
+    elif luck_roll < 0.40:
+        await remove_wife_relation(session, group_id, target_id)
+        await update_wife_relation(session, group_id, user_id, target_wife_id)
+        await send_match_message(bot, group_id, user_id, target_wife_id, "【趁虚而入】你成功抢到了老婆：")
+
+        # 情况 C：【两败俱伤/劫胡】 (10% 概率) - 0.40 到 0.50 之间
+        # 逻辑：目标的老婆跑了，但也没跟你，大家都变回单身
+    elif luck_roll < 0.50:
+        await remove_wife_relation(session, group_id, target_id)
+        # 如果抢夺者自己本来有老婆，也可能被气跑（可选）
+        await rob_lp_matcher.finish(f"由于场面太过混乱，{MessageSegment.at(target_id)} 的老婆趁机溜走，不知去向了！")
+
+        # 情况 D：【惊天反转/白给】 (10% 概率) - 0.85 以上
+        # 逻辑：抢夺失败，如果你自己有老婆，你的老婆反而会变成对方的
+    elif luck_roll > 0.85:
+        my_wife_id = await get_today_wife(session, group_id, user_id)
+        if my_wife_id:
+            await remove_wife_relation(session, group_id, user_id)
+            await update_wife_relation(session, group_id, target_id, my_wife_id)
+            await rob_lp_matcher.send(
+                f"【赔了夫人又折兵！】你抢人不成，反而把自己的老婆赔给了 {MessageSegment.at(target_id)} ！")
+            await send_match_message(bot, group_id, target_id, my_wife_id, "这是你意外获得的新老婆：")
+        else:
+            await rob_lp_matcher.finish(
+                f"你试图强抢，结果被 {MessageSegment.at(target_id)} 按在地上摩擦，还被围观群众嘲笑！")
+
+        # 情况 E：【普通失败】 (剩余 40% 概率)
     else:
-        # 抢夺失败
-        await rob_lp_matcher.finish(MessageSegment.at(user_id) + " 你试图强抢民女，但被对方乱棍打出了家门！")
+        fail_msgs = [
+            "对方甚至没正眼看你，抢夺失败。",
+            "你还没进家门就被对方养的狗撵出来了。",
+            "计划败露，你灰溜溜地逃跑了。",
+            "对方的防御密不透风，你无从下手。"
+        ]
+        await rob_lp_matcher.finish(f"{MessageSegment.at(user_id)} {random.choice(fail_msgs)}")
+
 
 
 async def send_match_message(bot: Bot, group_id: int, request_user_id: int, matched_user_id: int, title: str):
